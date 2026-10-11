@@ -1,0 +1,6 @@
+Admissions with service + diagnoses: 275
+Share whose first service is MED (general medicine): 40.7%
+Admissions that change service during stay: 12.7%
+ICD chapters per admission: mean 7.7, median 7, max 15
+Primary-diagnosis chapter uncertainty explained by first service (MI / H): 28.6%
+Top-chapter purity of primary diagnosis per service (n>=5): MED 16%, CMED 85%, SURG 39%, OMED 17%, NSURG 47%, CSURG 85%, VSURG 44%, TRAUM 75%, NMED 43%

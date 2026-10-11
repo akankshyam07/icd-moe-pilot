@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ICD Routing Pilot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Layout: single reading column (~68ch) with wide figures that break out to ~980px; clinical-chart neutrals biased toward ink blue. */
+:root {
+  --bg: #f6f7f8;
+  --surface: #fcfcfb;
+  --ink: #0f1720;
+  --ink-2: #4a5360;
+  --ink-3: #7c8591;
+  --rule: #dfe3e8;
+  --axis: #c3c9d1;
+  --accent: #1c5cab;
+  --accent-wash: #e6eef9;
+  --code-bg: #eef1f4;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a;
+  --good: #006300;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1114; --surface: #171a1e; --ink: #f2f4f7; --ink-2: #b9c0ca; --ink-3: #87909b;
+    --rule: #2a2f36; --axis: #3a4048; --accent: #7fb0f0; --accent-wash: #16263b; --code-bg: #20252c;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --good: #0ca30c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1114; --surface: #171a1e; --ink: #f2f4f7; --ink-2: #b9c0ca; --ink-3: #87909b;
+  --rule: #2a2f36; --axis: #3a4048; --accent: #7fb0f0; --accent-wash: #16263b; --code-bg: #20252c;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --good: #0ca30c;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 16px/1.6 var(--font-body); }
+.page { max-width: 980px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 72px; display: grid; gap: 56px; }
+.prose { max-width: 68ch; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; text-wrap: balance; margin: 0; line-height: 1.15; }
+h1 { font-size: clamp(2rem, 5vw, 2.9rem); letter-spacing: -0.01em; }
+h2 { font-size: 1.65rem; }
+h3 { font-size: 1.15rem; font-weight: 500; }
+p { margin: 0; }
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+code, .mono { font-family: var(--font-mono); font-size: 0.88em; }
+code { background: var(--code-bg); padding: 1px 5px; border-radius: 3px; }
+.eyebrow { font: 500 0.75rem/1.2 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.muted { color: var(--ink-2); }
+.small { font-size: 0.875rem; }
+section { display: grid; gap: 20px; }
+.stack { display: grid; gap: 14px; }
+
+/* header */
+header { display: grid; gap: 18px; border-bottom: 1px solid var(--rule); padding-bottom: 32px; }
+.byline { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--ink-2); font-size: 0.9rem; }
+.lede { font-size: 1.15rem; line-height: 1.55; color: var(--ink); max-width: 64ch; }
+.codepath { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font: 500 0.82rem var(--font-mono); color: var(--ink-2); }
+.codepath span.node { background: var(--surface); border: 1px solid var(--rule); border-radius: 3px; padding: 2px 7px; color: var(--ink); }
+.codepath span.arrow { color: var(--ink-3); }
+
+/* key findings */
+.findings { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; border-top: 1px solid var(--rule); }
+.findings li { display: grid; grid-template-columns: 7.5rem 1fr; gap: 18px; padding: 16px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+.findings .num { font: 600 1.6rem/1 var(--font-display); color: var(--accent); }
+.findings .num small { font-size: 0.8rem; font-weight: 500; color: var(--ink-3); display: block; margin-top: 4px; font-family: var(--font-mono); letter-spacing: 0.02em; }
+.findings p { min-width: 0; }
+@media (max-width: 560px) { .findings li { grid-template-columns: 1fr; gap: 6px; } }
+
+/* mentor goals table + generic tables */
+.table-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+th { font: 500 0.72rem/1.3 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); background: var(--surface); }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pill { display: inline-block; font: 500 0.72rem/1 var(--font-mono); padding: 4px 7px; border-radius: 999px; white-space: nowrap; border: 1px solid currentColor; }
+.pill.done { color: var(--good); }
+.pill.part { color: var(--accent); }
+.pill.wait { color: var(--ink-3); }
+tr.hl td { background: var(--accent-wash); }
+
+/* figures */
+figure { margin: 0; display: grid; gap: 12px; }
+.chart { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 16px; overflow-x: auto; }
+figcaption { font-size: 0.875rem; color: var(--ink-2); max-width: 75ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.85rem; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+svg text { font-family: var(--font-body); }
+
+/* heatmap */
+.heat { display: grid; grid-template-columns: 8.5rem repeat(19, minmax(30px, 1fr)); gap: 2px; min-width: 760px; font-size: 0.72rem; }
+.heat .col { writing-mode: vertical-rl; transform: rotate(180deg); justify-self: center; align-self: end; color: var(--ink-2); padding-bottom: 6px; white-space: nowrap; }
+.heat .row { color: var(--ink); align-self: center; font-size: 0.8rem; white-space: nowrap; }
+.heat .row small { color: var(--ink-3); font-family: var(--font-mono); font-size: 0.7rem; }
+.heat .cell { aspect-ratio: 1.15; max-width: 100%; border-radius: 2px; display: grid; place-items: center; font: 500 0.68rem var(--font-mono); font-variant-numeric: tabular-nums; cursor: default; }
+.ramp { display: flex; align-items: center; gap: 8px; font: 0.75rem var(--font-mono); color: var(--ink-3); }
+.ramp i { display: block; width: 160px; height: 10px; border-radius: 2px; }
+
+/* architecture */
+.arch { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.arch .box { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 14px; display: grid; gap: 8px; align-content: start; }
+.arch .flow { font: 0.78rem/1.7 var(--font-mono); color: var(--ink-2); }
+.arch .flow b { color: var(--ink); font-weight: 500; }
+.swatch { width: 10px; height: 10px; display: inline-block; flex: none; }
+
+/* papers */
+.papers td:first-child { min-width: 13rem; }
+.callout { border-left: 3px solid var(--accent); background: var(--surface); padding: 14px 16px; border-radius: 0 6px 6px 0; }
+ul.tight { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; }
+details { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 16px; }
+details summary { cursor: pointer; font-weight: 500; }
+details[open] summary { margin-bottom: 12px; }
+
+/* tooltip */
+.tip { position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 0.8rem; line-height: 1.45; padding: 8px 10px; border-radius: 5px; max-width: 260px; box-shadow: 0 4px 16px rgba(0,0,0,0.18); }
+.tip b { font-weight: 600; }
+footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85rem; color: var(--ink-3); }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+
+<main class="page">
+
+<header>
+  <div class="eyebrow">VIP · Automated ICD Coding</div>
+  <h1>Specialty vs. chapter routing for ICD coding: a pilot study</h1>
+  <div class="byline"><span>Akankshya Mohanty</span><span>October 2026</span></div>
+</header>
+
+<section aria-labelledby="h-why">
+  <h2 id="h-why">What I wanted to find out</h2>
+  <div class="prose stack">
+    <p>Our plan is a mixture-of-experts (MoE) model that assigns ICD codes from clinical notes. At our last meeting we discussed splitting the experts by <b>ICD chapter</b> or by <b>medical specialty</b>, using the <b>parent-child structure</b> of the code tree, and <b>stacking</b> specialty and chapter experts so the model gets more specific as the code gets longer.</p>
+    <p>We can't train on full MIMIC notes yet, so I wanted to answer as much as I could now:</p>
+    <ul class="tight">
+      <li>Has anyone already compared chapter-based and specialty-based experts for ICD coding?</li>
+      <li>In real MIMIC records, how does a patient's hospital service relate to the ICD chapters they get coded with? How many patients fall under general medicine?</li>
+      <li>On a small open dataset, does routing by specialty or by chapter work better? Does parent-child conditioning help? Does stacking help?</li>
+    </ul>
+    <p>I also wanted a working pipeline, so that when we have the MIMIC notes we can run the same comparison right away.</p>
+  </div>
+</section>
+
+<section aria-labelledby="h-summary">
+  <h2 id="h-summary">Summary of results</h2>
+  <ul class="findings">
+    <li><div class="num">None<small>found</small></div><p>I couldn't find any paper that compares chapter-routed and specialty-routed experts for ICD coding, or that uses MIMIC's <code>services</code> table to route. Both look like open gaps our project could fill.</p></li>
+    <li><div class="num">40.7%<small>of admissions</small></div><p>of admissions in the MIMIC-IV Demo start under general medicine (<code>MED</code>). A general-medicine expert would be the biggest one, so whether we keep it as a catch-all or leave those patients out is a real decision.</p></li>
+    <li><div class="num">7.7<small>chapters / stay</small></div><p>ICD chapters per admission on average. A patient usually has codes from many chapters but only one admitting service.</p></li>
+    <li><div class="num">+1.4<small>micro-F1 points</small></div><p>Routing by specialty did better than routing by chapter at both code levels. No MoE version clearly beat a plain model without experts, though.</p></li>
+    <li><div class="num">+1.3<small>micro-F1 points</small></div><p>Feeding each full code its parent category's score helped. That's close to the gain JointLAAT reports on MIMIC-III.</p></li>
+  </ul>
+</section>
+
+<section aria-labelledby="h-lit">
+  <h2 id="h-lit">What I read</h2>
+  <div class="prose stack">
+    <p>I started by looking for MoE models for ICD coding and for hierarchical (parent-child) coding models evaluated on MIMIC. These are the papers that mattered most for our design:</p>
+  </div>
+  <div class="table-wrap">
+    <table class="papers">
+      <thead><tr><th>Paper</th><th>What it does</th><th>Result that matters for us</th></tr></thead>
+      <tbody>
+        <tr><td><a href="https://www.sciopen.com/article/10.26599/BDMA.2025.9020019" target="_blank" rel="noopener">GoM-ICD</a> <span class="muted small">Wu et al., 2025</span></td><td>The only MoE model for ICD coding I found. Its experts are learned; the paper doesn't split them by chapter or specialty.</td><td class="mono small">micro-F1 61.7 MIMIC-III full, 61.3 MIMIC-IV</td></tr>
+        <tr><td><a href="https://www.ijcai.org/proceedings/2020/0461.pdf" target="_blank" rel="noopener">JointLAAT</a> <span class="muted small">Vu et al., IJCAI 2020</span></td><td>Predicts the 3-character parent code first, then feeds that prediction into each child code's classifier.</td><td class="mono small">macro-F1 9.9 → 10.7; micro-F1 unchanged</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2306.00005" target="_blank" rel="noopener">Two-Stage Decoder</a> <span class="muted small">Nguyen et al., ACL Findings 2023</span></td><td>Child codes attend to parent codes. The authors show this beats JointLAAT's approach.</td><td class="mono small">micro-F1 57.5 → 58.4 vs JointLAAT</td></tr>
+        <tr><td><a href="https://aclanthology.org/2020.acl-main.282/" target="_blank" rel="noopener">HyperCore</a> <span class="muted small">Cao et al., ACL 2020</span></td><td>Embeds the ICD code tree in hyperbolic space.</td><td class="mono small">hierarchy worth +1.2 micro-F1</td></tr>
+        <tr><td><a href="https://ojs.aaai.org/index.php/AAAI/article/view/25668" target="_blank" rel="noopener">GPsoap</a> <span class="muted small">Yang et al., AAAI 2023</span></td><td>Generates codes, then combines models with a reranker.</td><td class="mono small">ensemble +0.9 micro-F1, +4.2 macro-F1</td></tr>
+        <tr><td><a href="https://aclanthology.org/2024.naacl-long.273/" target="_blank" rel="noopener">Retrieve and Re-rank</a> <span class="muted small">Wang et al., NAACL 2024</span></td><td>Adds structured data (DRG, CPT, prescriptions) alongside the note. The closest thing I found to using <code>services</code>.</td><td class="mono small">extra data worth +2.4 micro-F1</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2304.10909" target="_blank" rel="noopener">Automated Medical Coding on MIMIC-III and MIMIC-IV</a> <span class="muted small">Edin et al., SIGIR 2023</span></td><td>Re-runs earlier models with corrected data splits and metrics, and sets the first clean MIMIC-IV baselines.</td><td class="mono small">the evaluation setup we should copy</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose stack">
+    <p>What I took from the reading:</p>
+    <ul class="tight">
+      <li>Mixture-of-experts papers in clinical AI split experts by <b>data type</b> (notes, labs, images), not by specialty. Splitting by chapter or specialty hasn't been tested.</li>
+      <li>Hierarchy helps, but by about 1 point, mostly on rare codes. We should expect gains of 1–4 points, not big jumps.</li>
+      <li>HiLAT and HLAN are often called "hierarchical", but they're hierarchical over the <b>document</b> (words, then sentences or chunks), not the code tree. They aren't the right baselines for parent-child coding.</li>
+      <li>The largest combined-model gain I could verify was about +1 micro-F1 and +4 macro-F1. Bigger numbers I came across were relative improvements, on private data, or from a different task setup.</li>
+    </ul>
+  </div>
+</section>
+
+<section aria-labelledby="h-data">
+  <h2 id="h-data">Data I used and why</h2>
+  <div class="prose stack">
+    <h3>Finding the MIMIC-IV Demo</h3>
+    <p>At the meeting I'd brought up MIMIC's <code>services</code> table, which records the hospital service each patient was under (cardiology, neurosurgery and so on), as a possible specialty label. I wanted to see what those rows actually look like and how many patients are general medicine, without waiting for the full database.</p>
+    <p>PhysioNet publishes the <a href="https://physionet.org/content/mimic-iv-demo/2.2/" target="_blank" rel="noopener">MIMIC-IV Clinical Database Demo</a>: 100 real patients (275 admissions) with the same tables and columns as full MIMIC-IV, and it's open to anyone. It has <code>services</code> and <code>diagnoses_icd</code>, which is exactly what I needed to check the specialty idea. It doesn't include clinical notes.</p>
+    <h3>Notes with ICD codes</h3>
+    <p>To test the coding model itself I needed notes labeled with ICD-10 codes that anyone can download. <a href="https://zenodo.org/records/3837305" target="_blank" rel="noopener">CodiEsp</a> (CLEF eHealth 2020) has 1,000 clinical case reports coded in ICD-10-CM, with an English translation. Its codes use the same tree as MIMIC-IV's ICD-10 codes, so chapters, 3-character categories and full codes all work the same way.</p>
+    <h3>A specialty label for those notes</h3>
+    <p>CodiEsp doesn't say which specialty each case belongs to. <a href="https://huggingface.co/datasets/harishnair04/mtsamples" target="_blank" rel="noopener">MTSamples</a> has about 5,000 transcribed notes labeled by specialty, so I trained a classifier on it and used it to give each CodiEsp note a specialty, standing in for <code>services</code>. I grouped the specialties to match MIMIC's service names.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Dataset</th><th>What it has</th><th>What I used it for</th><th>How close to what we'll have</th></tr></thead>
+      <tbody>
+        <tr><td>MIMIC-IV Demo v2.2</td><td>275 admissions, real <code>services</code> and <code>diagnoses_icd</code>, no notes</td><td>Experiment 1: service vs. ICD chapter</td><td>Same tables and columns as full MIMIC-IV</td></tr>
+        <tr><td>CodiEsp (English)</td><td>1,000 case reports with ICD-10 codes</td><td>Experiment 2: training and testing the coding models</td><td>Same code system; shorter notes in a different style from discharge summaries</td></tr>
+        <tr><td>MTSamples</td><td>~5,000 notes labeled by specialty</td><td>Training the specialty classifier</td><td>Predicted specialty instead of the real service</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="h-exp1">
+  <div class="eyebrow">Experiment 1 · MIMIC-IV Demo</div>
+  <h2 id="h-exp1">How hospital service relates to ICD chapter</h2>
+  <div class="prose stack">
+    <p>Each row is the service a patient was first admitted under. Each cell is the share of that service's admissions with at least one diagnosis code in that chapter. Older admissions use ICD-9, so I mapped those codes to the matching ICD-10 chapters. Hover a cell for counts.</p>
+  </div>
+  <figure>
+    <div class="chart">
+      <div class="heat" id="heat" role="img" aria-label="Heatmap of hospital service versus ICD chapter"></div>
+    </div>
+    <div class="ramp"><span>0%</span><i id="ramp"></i><span>100% of admissions</span></div>
+    <figcaption>Almost every service's patients have circulatory, endocrine and health-status (Z) codes, mostly from comorbidities. The specialty shows up in the less common chapters: nervous system for neurology (86%), neoplasms for oncology (100%), injury and external causes for trauma.</figcaption>
+  </figure>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Measure</th><th class="n">Value</th><th>What it means for routing</th></tr></thead>
+      <tbody>
+        <tr><td>First service is general medicine (MED)</td><td class="n">40.7%</td><td>The general-medicine expert would see the most patients and the least specific ones.</td></tr>
+        <tr><td>Admissions that change service during the stay</td><td class="n">12.7%</td><td>We need to decide whether to route on the first service or the last one.</td></tr>
+        <tr><td>How much of the primary diagnosis's chapter the service explains (mutual information ÷ entropy)</td><td class="n">28.6%</td><td>Service helps but doesn't decide the chapter. This is an overestimate at 275 admissions.</td></tr>
+        <tr><td>Primary diagnosis falls in one chapter: cardiac medicine, cardiac surgery</td><td class="n">85%</td><td>Specialty routing should work well for these services.</td></tr>
+        <tr><td>Primary diagnosis falls in one chapter: general medicine, oncology</td><td class="n">16%, 17%</td><td>The service alone says little here; the model has to rely on the note.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="h-router">
+  <div class="eyebrow">Specialty classifier · MTSamples</div>
+  <h2 id="h-router">Predicting a specialty for each note</h2>
+  <div class="prose stack">
+    <p>The classifier predicts one of 11 service groups (<code>MED</code>, <code>CMED</code>, <code>SURG</code>, <code>ORTHO</code>, <code>NMED</code>, <code>NSURG</code>, <code>GI</code>, <code>GYN</code>, <code>GU</code>, <code>OMED</code>, <code>PSYCH</code>). It's a TF-IDF and logistic regression model, which is simple and fast.</p>
+    <p>My first version only got 42% accuracy. When I looked into it, MTSamples lists 949 of its 2,094 unique notes under more than one specialty, usually a specific one plus "Surgery". The same note ended up in both training and test with different labels. After keeping one copy of each note and preferring the more specific specialty, accuracy went up to <b>84%</b> (macro-F1 0.85). Anyone else using MTSamples should watch for this.</p>
+  </div>
+</section>
+
+<section aria-labelledby="h-exp2">
+  <div class="eyebrow">Experiment 2 · CodiEsp</div>
+  <h2 id="h-exp2">Comparing routing strategies</h2>
+  <div class="prose stack">
+    <p>Every version reads the note the same way (Bio_ClinicalBERT, a clinical language model) and predicts two levels of the code tree: the 3-character category (393 codes) and the full code (476 codes). Only the routing and conditioning change, so differences come from the ideas we discussed and not from anything else. I ran each version 5 times with different random seeds.</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Version</th><th>How it works</th><th>Meeting idea it tests</th></tr></thead>
+      <tbody>
+        <tr><td>Plain model</td><td>One network, no experts</td><td>Baseline to beat</td></tr>
+        <tr><td>Plain + parent conditioning</td><td>Each full code also sees its 3-character parent's score</td><td>Parent-child hierarchy</td></tr>
+        <tr><td>MoE, learned gate</td><td>The model decides how to split notes among 8 experts</td><td>Do we need labels to route at all?</td></tr>
+        <tr><td>MoE, chapter-routed</td><td>One expert per ICD chapter; the gate learns to predict the note's chapters</td><td>Chapter experts</td></tr>
+        <tr><td>MoE, specialty-routed</td><td>One expert per specialty; the predicted specialty picks the experts</td><td>Specialty experts</td></tr>
+        <tr><td>Specialty-routed, no MED expert</td><td>Same, with the general-medicine expert removed</td><td>Catch-all vs. leaving general medicine out</td></tr>
+        <tr><td>Stacked</td><td>Specialty experts feed chapter experts; the full-code layer is adjusted by specialty and chapter, plus parent conditioning</td><td>Stacking, and conditioning as codes get more specific</td></tr>
+        <tr><td>Stacked, no parent / no FiLM</td><td>The stacked model with one part removed</td><td>Which part of stacking helps</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <figure>
+    <div class="chart">
+      <div class="legend" id="legend"></div>
+      <svg id="dots" role="img" aria-label="Dot plot of micro-F1 by version with standard deviation whiskers"></svg>
+    </div>
+    <figcaption>Average test micro-F1 with ±1 standard deviation across 5 runs. The axis doesn't start at zero, so compare positions. The dashed line is the plain model. Hover a row for macro-F1 and model size.</figcaption>
+  </figure>
+  <div class="table-wrap">
+    <table id="results">
+      <thead><tr><th>Version</th><th class="n">Category micro-F1</th><th class="n">Category macro-F1</th><th class="n">Full-code micro-F1</th><th class="n">Full-code macro-F1</th><th class="n">Params</th><th class="n">Gate entropy</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="prose stack">
+    <h3>What the results say</h3>
+    <ul class="tight">
+      <li><b>Specialty routing beat chapter routing</b> (0.277 vs. 0.263 on categories, 0.248 vs. 0.234 on full codes), even though the chapter model is twice the size. My explanation: a note covers many chapters, so the chapter gate has to guess them from the text and spreads its weight around, while the specialty is known up front.</li>
+      <li><b>No MoE version clearly beat the plain model.</b> With 500 training notes, each expert gets very little data. The learned gate put almost everything on 1–2 experts and did worst, which suggests routing should be guided by real labels like chapter or service.</li>
+      <li><b>Parent conditioning helped full codes</b> (+1.3 micro-F1, +1.4 macro-F1 over the plain model).</li>
+      <li><b>The stacked model had the best category score</b> (0.283), but only by about 1–2 standard deviations. Taking out FiLM, the layer that adjusts the full-code prediction by specialty and chapter, didn't hurt, so that part of the idea needs a different design or more data.</li>
+      <li><b>Removing the general-medicine expert changed nothing</b>, because only 8% of CodiEsp notes are classified as general medicine. In MIMIC it's 41%, so this test should matter much more there.</li>
+    </ul>
+  </div>
+</section>
+
+<section aria-labelledby="h-fit">
+  <h2 id="h-fit">Does this tell us what we need?</h2>
+  <div class="prose stack">
+    <p>Partly. These are the parts I think carry over to MIMIC, and the parts that don't:</p>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Carries over to MIMIC</th><th>Doesn't carry over yet</th></tr></thead>
+      <tbody>
+        <tr><td>The <code>services</code> numbers in Experiment 1 come from real MIMIC-IV tables.</td><td>Absolute scores. CodiEsp case reports are shorter and different in style from discharge summaries.</td></tr>
+        <tr><td>The experiment design: same encoder for every version, only routing changes, a fixed train/dev/test split, 5 runs each.</td><td>Specialty labels are predicted from MTSamples. In MIMIC the real service would route much more sharply.</td></tr>
+        <tr><td>The code: ICD-9/ICD-10 chapter mapping, all nine versions, and the evaluation all run on any notes coded in ICD-10.</td><td>Rare codes. I left out codes seen fewer than 3 times, and MIMIC has thousands of them.</td></tr>
+        <tr><td>Direction of the results: supervised routing beats a learned gate, and parent conditioning helps.</td><td>Whether specialty still beats chapter with real service labels and far more training data.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="prose stack">
+    <p>So this pilot doesn't settle the chapter-vs-specialty question, but it gives us a tested setup and a first result to check against once we run it on MIMIC notes.</p>
+  </div>
+</section>
+
+<section aria-labelledby="h-caveats">
+  <h2 id="h-caveats">Limitations</h2>
+  <ul class="tight prose">
+    <li>I kept the encoder frozen and had 500 training notes, so absolute F1 is low (around 0.25). The comparison between versions is the point, not the scores themselves.</li>
+    <li>The error bars only show variation between runs, not how much the 250 test notes affect the result.</li>
+    <li>The specialty classifier is often unsure on CodiEsp (average gate entropy 0.89 out of 1), so the specialty MoE partly acts like an average of experts.</li>
+  </ul>
+</section>
+
+<section aria-labelledby="h-next">
+  <h2 id="h-next">Next steps</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Step</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Run the same pipeline on MIMIC-IV discharge notes with the real <code>curr_service</code> labels, using the Edin et al. split</td><td>Tests whether specialty routing still wins with true labels and far more data.</td></tr>
+        <tr><td>Compare hard routing (service picks one expert), soft routing (service feeds the gate), and service plus note text</td><td>Nobody has published on this router design question.</td></tr>
+        <tr><td>Test keeping a general-medicine expert vs. leaving MED admissions out</td><td>MED is 41% of admissions in MIMIC, so this choice is big there.</td></tr>
+        <tr><td>Swap FiLM for child-to-parent attention (like the Two-Stage Decoder) in the stacked model</td><td>FiLM didn't help; attention is the stronger published approach.</td></tr>
+        <tr><td>Fine-tune the encoder on a free Kaggle GPU (notebook is ready, about 3 hours)</td><td>Raises the scores and checks that the ranking holds.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<details>
+  <summary>Methods details</summary>
+  <div class="stack small muted">
+    <p><b>Data.</b> MIMIC-IV Demo v2.2: <code>services</code> (first service per admission by transfer time) and <code>diagnoses_icd</code>, with ICD-9 codes mapped to ICD-10 chapters. MTSamples: 4,999 notes reduced to 2,094 after removing duplicates and labels that are note types (Consult, SOAP, Discharge Summary) instead of specialties. CodiEsp English: 500 train / 250 dev / 250 test, keeping codes with at least 3 training occurrences.</p>
+    <p><b>Specialty classifier.</b> TF-IDF (1–2-word phrases) with class-balanced logistic regression, 80/20 stratified split.</p>
+    <p><b>Coding models.</b> Bio_ClinicalBERT with notes split into 512-token chunks and averaged, encoder frozen. Experts are 128-unit layers. The chapter gate is trained toward each note's chapter distribution; the learned gate has a load-balancing penalty. Trained with AdamW and stopped early on the dev set; one decision threshold per code level is tuned on dev. Macro-F1 averages over codes that appear in the test set.</p>
+    <p><b>Code.</b> <a href="https://github.com/akankshyam07/icd-moe-pilot" target="_blank" rel="noopener">github.com/akankshyam07/icd-moe-pilot</a>: Python scripts for each step plus a Kaggle notebook. Every run uses a fixed seed and reproduces exactly; the full comparison takes about 8 minutes on a laptop.</p>
+  </div>
+</details>
+
+</main>
+
+<div class="tip" id="tip" hidden></div>
+
+<script>
+(function () {
+  const chapters = ["Circulatory","Health status","Endocrine","Mental","Symptoms","Respiratory","Nervous","Blood/Immune","External","Genitourinary","Digestive","Injury","Musculoskeletal","Infectious","Neoplasms","Skin","Eye","Congenital","Ear"];
+  const services = [
+    ["MED","General medicine",112,16,[.777,.866,.821,.661,.688,.446,.402,.607,.330,.616,.509,.357,.366,.438,.232,.170,.045,.054,.027]],
+    ["CMED","Cardiac medicine",39,85,[1,.949,.949,.564,.385,.410,.333,.333,.359,.462,.333,.385,.231,.205,.154,.128,.128,.026,0]],
+    ["SURG","General surgery",36,39,[.722,.833,.722,.639,.389,.306,.222,.389,.278,.222,.694,.306,.222,.333,.25,.139,0,.028,0]],
+    ["OMED","Oncology",24,17,[.792,1,.833,.667,.833,.542,.625,.75,.333,.458,.417,.292,.375,.333,1,.083,.125,0,0]],
+    ["NSURG","Neurosurgery",15,47,[.933,.8,.8,.467,.533,.4,.6,.133,.4,.267,.333,.333,.2,.267,.133,0,.067,.067,.067]],
+    ["CSURG","Cardiac surgery",13,85,[.923,.923,.615,.154,.231,.462,.154,.231,.231,.231,.385,.154,.231,0,.154,0,.077,0,.077]],
+    ["VSURG","Vascular surgery",9,44,[.889,.889,.667,.444,.111,.222,.222,.333,.333,.333,.222,.222,.556,.333,.111,.444,0,0,0]],
+    ["TRAUM","Trauma",8,75,[.75,.75,.875,.875,.5,.75,.375,.375,1,.375,.25,.875,.25,.125,0,.125,0,0,0]],
+    ["NMED","Neurology",7,43,[1,.571,.714,.714,.286,.286,.857,.286,.143,.429,.143,.143,.429,.286,.286,.143,.143,0,0]]
+  ];
+  // variant, label, family(0 baseline,1 moe,2 stacked), cat micro m/s, cat macro m/s, full micro m/s, full macro m/s, params(k), entropy
+  const results = [
+    ["flat","Plain model (no experts)",0,.276,.003,.134,.003,.241,.007,.108,.014,571,null],
+    ["flat_parent","Plain + parent conditioning",0,.277,.007,.121,.017,.254,.005,.122,.016,572,null],
+    ["moe_learned","MoE, learned gate",1,.238,.007,.106,.008,.206,.012,.084,.009,906,.25],
+    ["moe_chapter","MoE, chapter-routed",1,.263,.007,.122,.006,.234,.007,.099,.009,2295,.69],
+    ["moe_specialty","MoE, specialty-routed",1,.277,.007,.134,.013,.248,.003,.107,.008,1195,.89],
+    ["moe_specialty_noMED","MoE, specialty, no MED expert",1,.278,.006,.129,.011,.248,.007,.108,.009,1096,.88],
+    ["stacked","Stacked (FiLM + parent)",2,.283,.005,.131,.008,.248,.010,.118,.002,1587,.55],
+    ["stacked_noparent","Stacked, no parent",2,.282,.005,.136,.019,.249,.004,.112,.020,1587,.54],
+    ["stacked_nofilm","Stacked, no FiLM",2,.282,.003,.124,.011,.251,.004,.121,.005,1578,.56]
+  ];
+  const families = ["Baselines","Single-level MoE","Stacked MoE"];
+  const highlight = new Set(["moe_chapter","moe_specialty"]);
+  const tip = document.getElementById("tip");
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const isDark = () => {
+    const t = document.documentElement.getAttribute("data-theme");
+    return t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  };
+  const pct = v => Math.round(v * 100) + "%";
+  const f3 = v => v.toFixed(3);
+
+  function showTip(evt, html) {
+    tip.innerHTML = html; tip.hidden = false;
+    const r = tip.getBoundingClientRect();
+    let x = evt.clientX + 14, y = evt.clientY + 14;
+    if (x + r.width > innerWidth - 8) x = evt.clientX - r.width - 14;
+    if (y + r.height > innerHeight - 8) y = evt.clientY - r.height - 14;
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+  }
+  const hideTip = () => { tip.hidden = true; };
+
+  // sequential blue ramp; dark mode runs from near-surface to bright
+  const lightRamp = ["#f3f7fc","#cde2fb","#9ec5f4","#6da7ec","#3987e5","#256abf","#184f95","#0d366b"];
+  const darkRamp  = ["#1b2129","#14284a","#184f95","#1c5cab","#2a78d6","#5598e7","#86b6ef","#cde2fb"];
+  function hex(h){return [1,3,5].map(i=>parseInt(h.slice(i,i+2),16));}
+  function rampColor(v, ramp) {
+    const p = Math.max(0, Math.min(1, v)) * (ramp.length - 1), i = Math.min(Math.floor(p), ramp.length - 2), t = p - i;
+    const a = hex(ramp[i]), b = hex(ramp[i+1]);
+    return "rgb(" + a.map((c,k)=>Math.round(c+(b[k]-c)*t)).join(",") + ")";
+  }
+
+  function drawHeat() {
+    const ramp = isDark() ? darkRamp : lightRamp;
+    document.getElementById("ramp").style.background = "linear-gradient(90deg," + ramp.join(",") + ")";
+    const el = document.getElementById("heat");
+    el.innerHTML = "";
+    el.appendChild(document.createElement("div"));
+    chapters.forEach(c => { const d = document.createElement("div"); d.className = "col"; d.textContent = c; el.appendChild(d); });
+    services.forEach(([code, name, n, purity, vals]) => {
+      const r = document.createElement("div"); r.className = "row";
+      r.innerHTML = '<span class="mono">' + code + '</span> <small>n=' + n + '</small>';
+      r.title = name; el.appendChild(r);
+      vals.forEach((v, j) => {
+        const c = document.createElement("div"); c.className = "cell";
+        c.style.background = rampColor(v, ramp);
+        const strong = isDark() ? v > 0.55 : v > 0.6;
+        c.style.color = strong ? (isDark() ? "#0f1114" : "#ffffff") : css("--ink");
+        if (v >= 0.3) c.textContent = Math.round(v * 100);
+        c.tabIndex = -1;
+        c.addEventListener("mousemove", e => showTip(e, "<b>" + name + " (" + code + ")</b><br>" + chapters[j] + ": " + pct(v) + " of " + n + " admissions<br>Primary diagnosis in top chapter: " + purity + "%"));
+        c.addEventListener("mouseleave", hideTip);
+        el.appendChild(c);
+      });
+    });
+  }
+
+  function marker(svgNS, fam, x, y, color) {
+    let m;
+    if (fam === 0) { m = document.createElementNS(svgNS, "circle"); m.setAttribute("cx", x); m.setAttribute("cy", y); m.setAttribute("r", 5.5); }
+    else if (fam === 1) { m = document.createElementNS(svgNS, "rect"); m.setAttribute("x", x - 5); m.setAttribute("y", y - 5); m.setAttribute("width", 10); m.setAttribute("height", 10); m.setAttribute("rx", 1.5); }
+    else { m = document.createElementNS(svgNS, "rect"); m.setAttribute("x", x - 4.6); m.setAttribute("y", y - 4.6); m.setAttribute("width", 9.2); m.setAttribute("height", 9.2); m.setAttribute("transform", "rotate(45 " + x + " " + y + ")"); }
+    m.setAttribute("fill", color); m.setAttribute("stroke", css("--surface")); m.setAttribute("stroke-width", 2);
+    return m;
+  }
+
+  function drawDots() {
+    const svgNS = "http://www.w3.org/2000/svg";
+    const svg = document.getElementById("dots");
+    const colors = [css("--s1"), css("--s2"), css("--s3")];
+    const legend = document.getElementById("legend");
+    legend.innerHTML = families.map((f, i) => {
+      const shape = i === 0 ? "border-radius:50%" : i === 2 ? "transform:rotate(45deg) scale(.85)" : "";
+      return '<span><i class="swatch" style="background:' + colors[i] + ';' + shape + '"></i>' + f + '</span>';
+    }).join("");
+    const narrow = svg.parentElement.clientWidth < 640;
+    const W = Math.max(svg.parentElement.clientWidth - 32, 340);
+    const labelW = narrow ? 0 : 200, gapP = 28, rowH = 30, top = 34, bottom = 40;
+    const panelW = narrow ? W - 8 : (W - labelW - gapP) / 2;
+    const H = narrow ? (top + results.length * rowH + bottom) * 2 + 20 : top + results.length * rowH + bottom;
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H); svg.setAttribute("width", W); svg.setAttribute("height", H);
+    svg.innerHTML = "";
+    const lo = 0.19, hi = 0.30;
+    const panels = [["Category (3-character) micro-F1", 3], ["Full-code micro-F1", 7]];
+    const mk = (tag, attrs, text) => { const e = document.createElementNS(svgNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; svg.appendChild(e); return e; };
+    panels.forEach(([title, idx], p) => {
+      const x0 = narrow ? 4 : labelW + p * (panelW + gapP);
+      const y0 = narrow ? p * (top + results.length * rowH + bottom + 20) : 0;
+      const sx = v => x0 + (v - lo) / (hi - lo) * panelW;
+      mk("text", { x: x0, y: y0 + 14, fill: css("--ink"), "font-size": 13, "font-weight": 600 }, title);
+      [0.20, 0.22, 0.24, 0.26, 0.28, 0.30].forEach(t => {
+        mk("line", { x1: sx(t), x2: sx(t), y1: y0 + top - 6, y2: y0 + top + results.length * rowH, stroke: css("--rule"), "stroke-width": 1 });
+        mk("text", { x: sx(t), y: y0 + top + results.length * rowH + 18, fill: css("--ink-3"), "font-size": 11, "text-anchor": "middle", style: "font-variant-numeric:tabular-nums" }, t.toFixed(2));
+      });
+      const base = results[0][idx];
+      mk("line", { x1: sx(base), x2: sx(base), y1: y0 + top - 6, y2: y0 + top + results.length * rowH, stroke: css("--ink-3"), "stroke-width": 1, "stroke-dasharray": "3 3" });
+      results.forEach((r, i) => {
+        const y = y0 + top + i * rowH + rowH / 2;
+        if (highlight.has(r[0])) mk("rect", { x: x0 - 4, y: y - rowH / 2 + 2, width: panelW + 8, height: rowH - 4, fill: css("--accent-wash"), rx: 3 });
+        if (!narrow && p === 0) mk("text", { x: labelW - 14, y: y + 4, fill: css("--ink"), "font-size": 12.5, "text-anchor": "end" }, r[1]);
+        if (narrow) mk("text", { x: x0, y: y - 8, fill: css("--ink-2"), "font-size": 10.5 }, r[1]);
+        const m = r[idx], s = r[idx + 1];
+        mk("line", { x1: sx(m - s), x2: sx(m + s), y1: y, y2: y, stroke: colors[r[2]], "stroke-width": 2, "stroke-linecap": "round" });
+        svg.appendChild(marker(svgNS, r[2], sx(m), y, colors[r[2]]));
+        mk("text", { x: sx(m + s) + 8, y: y + 4, fill: css("--ink-2"), "font-size": 11, style: "font-variant-numeric:tabular-nums" }, f3(m));
+        const hit = mk("rect", { x: x0 - 4, y: y - rowH / 2, width: panelW + 8, height: rowH, fill: "transparent" });
+        hit.addEventListener("mousemove", e => showTip(e, "<b>" + r[1] + "</b><br>" + title + ": " + f3(m) + " ± " + f3(s) + "<br>Macro-F1: " + f3(r[idx + 2]) + " ± " + f3(r[idx + 3]) + "<br>Head parameters: " + r[11] + "k" + (r[12] != null ? "<br>Gate entropy: " + r[12].toFixed(2) : "")));
+        hit.addEventListener("mouseleave", hideTip);
+      });
+    });
+  }
+
+  function fillTable() {
+    const tb = document.querySelector("#results tbody");
+    const best = [3,5,7,9].map(k => Math.max(...results.map(r => r[k])));
+    tb.innerHTML = results.map(r => {
+      const cell = (k, b) => '<td class="n">' + (r[k] === b ? "<b>" : "") + f3(r[k]) + (r[k] === b ? "</b>" : "") + ' <span class="muted">± ' + f3(r[k+1]) + '</span></td>';
+      return '<tr' + (highlight.has(r[0]) ? ' class="hl"' : '') + '><td>' + r[1] + '</td>' + cell(3, best[0]) + cell(5, best[1]) + cell(7, best[2]) + cell(9, best[3]) +
+        '<td class="n">' + r[11].toLocaleString() + 'k</td><td class="n">' + (r[12] == null ? "–" : r[12].toFixed(2)) + '</td></tr>';
+    }).join("");
+  }
+
+  function drawAll() { drawHeat(); drawDots(); }
+  fillTable(); drawAll();
+  addEventListener("resize", () => { clearTimeout(drawAll.t); drawAll.t = setTimeout(drawDots, 120); });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawAll);
+  new MutationObserver(drawAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+})();
+</script>
+</body>
+</html>

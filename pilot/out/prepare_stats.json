@@ -1,0 +1,33 @@
+{
+ "mtsamples_notes": 2094,
+ "heldout_accuracy": 0.8400954653937948,
+ "heldout_macro_f1": 0.8511544576788924,
+ "class_counts": {
+  "CMED": 349,
+  "ORTHO": 268,
+  "SURG": 251,
+  "MED": 238,
+  "GI": 217,
+  "GU": 204,
+  "NMED": 185,
+  "GYN": 145,
+  "NSURG": 94,
+  "OMED": 90,
+  "PSYCH": 53
+ },
+ "codiesp_argmax_distribution": {
+  "GU": 208,
+  "NMED": 142,
+  "CMED": 142,
+  "GI": 128,
+  "OMED": 126,
+  "SURG": 104,
+  "MED": 76,
+  "ORTHO": 52,
+  "GYN": 15,
+  "PSYCH": 7
+ },
+ "n_full_codes": 476,
+ "n_categories": 393,
+ "full_codes_with_parent": 476
+}
