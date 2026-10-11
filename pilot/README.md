@@ -67,8 +67,8 @@ Full table with macro-F1 for categories, parameter counts and expert usage: `out
 2. **No MoE clearly beat the flat baseline.** The specialty-routed MoE matched it. With 500 training
    notes, experts get little data each. The learned (unsupervised) gate collapsed onto ~1.5 experts and
    was worst, which supports using supervised routing (chapter or specialty labels) over a free gate.
-3. **Parent → child conditioning helped full codes** (+1.3 micro-F1, +1.4 macro-F1 over flat). That
-   matches the ~1 point JointLAAT reports on MIMIC-III.
+3. **Parent → child conditioning helped full codes** (+1.2 micro-F1, +1.4 macro-F1 over flat). Published
+   hierarchy methods on MIMIC-III report gains of about the same size (+0.9 to +1.2 micro-F1).
 4. **Stacked specialty → chapter** gave the best category micro-F1, but the margin over flat is within
    ~1–2 standard deviations. **FiLM conditioning on specialty and chapter did not help.** Removing it
    was as good or better.

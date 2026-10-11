@@ -115,6 +115,8 @@ svg text { font-family: var(--font-body); }
 
 /* papers */
 .papers td:first-child { min-width: 13rem; }
+.terms td:first-child { width: 11rem; font-weight: 500; }
+.terms .codepath { margin-top: 8px; }
 .callout { border-left: 3px solid var(--accent); background: var(--surface); padding: 14px 16px; border-radius: 0 6px 6px 0; }
 ul.tight { margin: 0; padding-left: 1.2em; display: grid; gap: 8px; }
 details { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 16px; }
@@ -152,6 +154,27 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
   </div>
 </section>
 
+<section aria-labelledby="h-terms">
+  <h2 id="h-terms">Key terms</h2>
+  <div class="table-wrap">
+    <table class="terms">
+      <tbody>
+        <tr><td>ICD code tree</td><td>ICD-10 codes get more specific as they get longer. A <b>chapter</b> is one of 22 broad groups by body system, a <b>3-character category</b> is a condition, and the <b>full code</b> adds detail.
+          <div class="codepath" aria-label="Example ICD-10-CM path from chapter to full code"><span class="node">Ch. 9 Circulatory (I00–I99)</span><span class="arrow">→</span><span class="node">I21 Acute MI</span><span class="arrow">→</span><span class="node">I21.01 STEMI, left main artery</span></div></td></tr>
+        <tr><td>Mixture of experts (MoE)</td><td>A model made of several smaller sub-networks ("experts"), each meant to specialize in part of the data, plus a <b>gate</b> that decides how much each expert counts for a given note.</td></tr>
+        <tr><td>Routing</td><td>How the gate decides. <b>Chapter-routed</b>: one expert per ICD chapter. <b>Specialty-routed</b>: one expert per hospital service. <b>Learned gate</b>: the model makes up its own split.</td></tr>
+        <tr><td><code>services</code> table</td><td>A MIMIC table that records which hospital service a patient was under during a stay, such as <code>MED</code> (general medicine), <code>CMED</code> (cardiology) or <code>SURG</code> (surgery).</td></tr>
+        <tr><td>Micro-F1 / macro-F1</td><td>F1 combines precision (how many predicted codes were right) and recall (how many true codes were found), from 0 to 1. <b>Micro-F1</b> pools every prediction, so common codes dominate. <b>Macro-F1</b> averages over codes, so rare codes count equally. "1 point" here means 0.01.</td></tr>
+        <tr><td>Parent conditioning</td><td>When predicting a full code like I21.01, the model also sees its score for the parent category I21.</td></tr>
+        <tr><td>FiLM</td><td>A layer that adjusts the model's internal features using extra information. Here, specialty and chapter adjust the full-code prediction.</td></tr>
+        <tr><td>Gate entropy</td><td>How spread out the gate's choices are, from 0 (each note goes to a single expert) to 1 (spread evenly across all experts).</td></tr>
+        <tr><td>Seeds and ±</td><td>Each version was trained 5 times from different random starting points. The ± is the standard deviation: how much results vary between runs. Differences smaller than about twice that aren't reliable.</td></tr>
+        <tr><td>Bio_ClinicalBERT</td><td>A language model (BioBERT, further trained on MIMIC-III clinical notes). It turns each note into a list of numbers that the experts then work from. I kept it frozen, so it wasn't trained further.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
 <section aria-labelledby="h-summary">
   <h2 id="h-summary">Summary of results</h2>
   <ul class="findings">
@@ -159,7 +182,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
     <li><div class="num">40.7%<small>of admissions</small></div><p>of admissions in the MIMIC-IV Demo start under general medicine (<code>MED</code>). A general-medicine expert would be the biggest one, so whether we keep it as a catch-all or leave those patients out is a real decision.</p></li>
     <li><div class="num">7.7<small>chapters / stay</small></div><p>ICD chapters per admission on average. A patient usually has codes from many chapters but only one admitting service.</p></li>
     <li><div class="num">+1.4<small>micro-F1 points</small></div><p>Routing by specialty did better than routing by chapter at both code levels. No MoE version clearly beat a plain model without experts, though.</p></li>
-    <li><div class="num">+1.3<small>micro-F1 points</small></div><p>Feeding each full code its parent category's score helped. That's close to the gain JointLAAT reports on MIMIC-III.</p></li>
+    <li><div class="num">+1.2<small>micro-F1 points</small></div><p>Feeding each full code its parent category's score helped. Published hierarchy methods on MIMIC-III report gains of about the same size (+0.9 to +1.2 micro-F1).</p></li>
   </ul>
 </section>
 
@@ -172,11 +195,11 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
     <table class="papers">
       <thead><tr><th>Paper</th><th>What it does</th><th>Result that matters for us</th></tr></thead>
       <tbody>
-        <tr><td><a href="https://www.sciopen.com/article/10.26599/BDMA.2025.9020019" target="_blank" rel="noopener">GoM-ICD</a> <span class="muted small">Wu et al., 2025</span></td><td>The only MoE model for ICD coding I found. Its experts are learned; the paper doesn't split them by chapter or specialty.</td><td class="mono small">micro-F1 61.7 MIMIC-III full, 61.3 MIMIC-IV</td></tr>
+        <tr><td><a href="https://www.sciopen.com/article/10.26599/BDMA.2025.9020019" target="_blank" rel="noopener">GoM-ICD</a> <span class="muted small">Wu et al., 2025</span></td><td>The only MoE model for ICD coding I found. Its abstract doesn't describe splitting experts by chapter or specialty.</td><td class="mono small">micro-F1 61.7 MIMIC-III full, 61.3 MIMIC-IV</td></tr>
         <tr><td><a href="https://www.ijcai.org/proceedings/2020/0461.pdf" target="_blank" rel="noopener">JointLAAT</a> <span class="muted small">Vu et al., IJCAI 2020</span></td><td>Predicts the 3-character parent code first, then feeds that prediction into each child code's classifier.</td><td class="mono small">macro-F1 9.9 → 10.7; micro-F1 unchanged</td></tr>
         <tr><td><a href="https://arxiv.org/abs/2306.00005" target="_blank" rel="noopener">Two-Stage Decoder</a> <span class="muted small">Nguyen et al., ACL Findings 2023</span></td><td>Child codes attend to parent codes. The authors show this beats JointLAAT's approach.</td><td class="mono small">micro-F1 57.5 → 58.4 vs JointLAAT</td></tr>
         <tr><td><a href="https://aclanthology.org/2020.acl-main.282/" target="_blank" rel="noopener">HyperCore</a> <span class="muted small">Cao et al., ACL 2020</span></td><td>Embeds the ICD code tree in hyperbolic space.</td><td class="mono small">hierarchy worth +1.2 micro-F1</td></tr>
-        <tr><td><a href="https://ojs.aaai.org/index.php/AAAI/article/view/25668" target="_blank" rel="noopener">GPsoap</a> <span class="muted small">Yang et al., AAAI 2023</span></td><td>Generates codes, then combines models with a reranker.</td><td class="mono small">ensemble +0.9 micro-F1, +4.2 macro-F1</td></tr>
+        <tr><td><a href="https://ojs.aaai.org/index.php/AAAI/article/view/25668" target="_blank" rel="noopener">GPsoap</a> <span class="muted small">Yang et al., AAAI 2023</span></td><td>Generates codes, then combines models with a reranker.</td><td class="mono small">reranker +1.0 micro-F1, +4.2 macro-F1</td></tr>
         <tr><td><a href="https://aclanthology.org/2024.naacl-long.273/" target="_blank" rel="noopener">Retrieve and Re-rank</a> <span class="muted small">Wang et al., NAACL 2024</span></td><td>Adds structured data (DRG, CPT, prescriptions) alongside the note. The closest thing I found to using <code>services</code>.</td><td class="mono small">extra data worth +2.4 micro-F1</td></tr>
         <tr><td><a href="https://arxiv.org/abs/2304.10909" target="_blank" rel="noopener">Automated Medical Coding on MIMIC-III and MIMIC-IV</a> <span class="muted small">Edin et al., SIGIR 2023</span></td><td>Re-runs earlier models with corrected data splits and metrics, and sets the first clean MIMIC-IV baselines.</td><td class="mono small">the evaluation setup we should copy</td></tr>
       </tbody>
@@ -188,7 +211,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
       <li>Mixture-of-experts papers in clinical AI split experts by <b>data type</b> (notes, labs, images), not by specialty. Splitting by chapter or specialty hasn't been tested.</li>
       <li>Hierarchy helps, but by about 1 point, mostly on rare codes. We should expect gains of 1–4 points, not big jumps.</li>
       <li>HiLAT and HLAN are often called "hierarchical", but they're hierarchical over the <b>document</b> (words, then sentences or chunks), not the code tree. They aren't the right baselines for parent-child coding.</li>
-      <li>The largest combined-model gain I could verify was about +1 micro-F1 and +4 macro-F1. Bigger numbers I came across were relative improvements, on private data, or from a different task setup.</li>
+      <li>The largest combined-model gain I could verify was +1.0 micro-F1 and +4.2 macro-F1 (GPsoap). Bigger numbers I came across were relative improvements, on private data, or from a different task setup.</li>
     </ul>
   </div>
 </section>
@@ -200,7 +223,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
     <p>At the meeting I'd brought up MIMIC's <code>services</code> table, which records the hospital service each patient was under (cardiology, neurosurgery and so on), as a possible specialty label. I wanted to see what those rows actually look like and how many patients are general medicine, without waiting for the full database.</p>
     <p>PhysioNet publishes the <a href="https://physionet.org/content/mimic-iv-demo/2.2/" target="_blank" rel="noopener">MIMIC-IV Clinical Database Demo</a>: 100 real patients (275 admissions) with the same tables and columns as full MIMIC-IV, and it's open to anyone. It has <code>services</code> and <code>diagnoses_icd</code>, which is exactly what I needed to check the specialty idea. It doesn't include clinical notes.</p>
     <h3>Notes with ICD codes</h3>
-    <p>To test the coding model itself I needed notes labeled with ICD-10 codes that anyone can download. <a href="https://zenodo.org/records/3837305" target="_blank" rel="noopener">CodiEsp</a> (CLEF eHealth 2020) has 1,000 clinical case reports coded in ICD-10-CM, with an English translation. Its codes use the same tree as MIMIC-IV's ICD-10 codes, so chapters, 3-character categories and full codes all work the same way.</p>
+    <p>To test the coding model itself I needed notes labeled with ICD-10 codes that anyone can download. <a href="https://zenodo.org/records/3837305" target="_blank" rel="noopener">CodiEsp</a> (CLEF eHealth 2020) has 1,000 Spanish clinical case reports coded in ICD-10, with a machine-translated English version, which is what I used. Its codes use the same tree as MIMIC-IV's ICD-10 codes, so chapters, 3-character categories and full codes all work the same way.</p>
     <h3>A specialty label for those notes</h3>
     <p>CodiEsp doesn't say which specialty each case belongs to. <a href="https://huggingface.co/datasets/harishnair04/mtsamples" target="_blank" rel="noopener">MTSamples</a> has about 5,000 transcribed notes labeled by specialty, so I trained a classifier on it and used it to give each CodiEsp note a specialty, standing in for <code>services</code>. I grouped the specialties to match MIMIC's service names.</p>
   </div>
@@ -235,7 +258,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
       <tbody>
         <tr><td>First service is general medicine (MED)</td><td class="n">40.7%</td><td>The general-medicine expert would see the most patients and the least specific ones.</td></tr>
         <tr><td>Admissions that change service during the stay</td><td class="n">12.7%</td><td>We need to decide whether to route on the first service or the last one.</td></tr>
-        <tr><td>How much of the primary diagnosis's chapter the service explains (mutual information ÷ entropy)</td><td class="n">28.6%</td><td>Service helps but doesn't decide the chapter. This is an overestimate at 275 admissions.</td></tr>
+        <tr><td>How much knowing the service tells you about the primary diagnosis's chapter (0% = nothing, 100% = everything; measured with mutual information)</td><td class="n">28.6%</td><td>Service helps but doesn't decide the chapter. This is an overestimate at 275 admissions.</td></tr>
         <tr><td>Primary diagnosis falls in one chapter: cardiac medicine, cardiac surgery</td><td class="n">85%</td><td>Specialty routing should work well for these services.</td></tr>
         <tr><td>Primary diagnosis falls in one chapter: general medicine, oncology</td><td class="n">16%, 17%</td><td>The service alone says little here; the model has to rely on the note.</td></tr>
       </tbody>
@@ -247,7 +270,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
   <div class="eyebrow">Specialty classifier · MTSamples</div>
   <h2 id="h-router">Predicting a specialty for each note</h2>
   <div class="prose stack">
-    <p>The classifier predicts one of 11 service groups (<code>MED</code>, <code>CMED</code>, <code>SURG</code>, <code>ORTHO</code>, <code>NMED</code>, <code>NSURG</code>, <code>GI</code>, <code>GYN</code>, <code>GU</code>, <code>OMED</code>, <code>PSYCH</code>). It's a TF-IDF and logistic regression model, which is simple and fast.</p>
+    <p>The classifier predicts one of 11 service groups (<code>MED</code>, <code>CMED</code>, <code>SURG</code>, <code>ORTHO</code>, <code>NMED</code>, <code>NSURG</code>, <code>GI</code>, <code>GYN</code>, <code>GU</code>, <code>OMED</code>, <code>PSYCH</code>). It's a TF-IDF and logistic regression model: it scores notes by which words they use and how often, then picks the most likely service. It's simple and fast.</p>
     <p>My first version only got 42% accuracy. When I looked into it, MTSamples lists 949 of its 2,094 unique notes under more than one specialty, usually a specific one plus "Surgery". The same note ended up in both training and test with different labels. After keeping one copy of each note and preferring the more specific specialty, accuracy went up to <b>84%</b> (macro-F1 0.85). Anyone else using MTSamples should watch for this.</p>
   </div>
 </section>
@@ -256,7 +279,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
   <div class="eyebrow">Experiment 2 · CodiEsp</div>
   <h2 id="h-exp2">Comparing routing strategies</h2>
   <div class="prose stack">
-    <p>Every version reads the note the same way (Bio_ClinicalBERT, a clinical language model) and predicts two levels of the code tree: the 3-character category (393 codes) and the full code (476 codes). Only the routing and conditioning change, so differences come from the ideas we discussed and not from anything else. I ran each version 5 times with different random seeds.</p>
+    <p>Every version reads the note the same way (Bio_ClinicalBERT turns it into numbers) and predicts two levels of the code tree: the 3-character category (393 codes) and the full code (476 codes). Only the routing and conditioning change, so differences come from the ideas we discussed and not from anything else. I ran each version 5 times with different random seeds.</p>
   </div>
   <div class="table-wrap">
     <table>
@@ -269,7 +292,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
         <tr><td>MoE, specialty-routed</td><td>One expert per specialty; the predicted specialty picks the experts</td><td>Specialty experts</td></tr>
         <tr><td>Specialty-routed, no MED expert</td><td>Same, with the general-medicine expert removed</td><td>Catch-all vs. leaving general medicine out</td></tr>
         <tr><td>Stacked</td><td>Specialty experts feed chapter experts; the full-code layer is adjusted by specialty and chapter, plus parent conditioning</td><td>Stacking, and conditioning as codes get more specific</td></tr>
-        <tr><td>Stacked, no parent / no FiLM</td><td>The stacked model with one part removed</td><td>Which part of stacking helps</td></tr>
+        <tr><td>Stacked, no parent / no FiLM</td><td>The stacked model with parent conditioning or the FiLM layer removed</td><td>Which part of stacking helps</td></tr>
       </tbody>
     </table>
   </div>
@@ -286,12 +309,13 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
       <tbody></tbody>
     </table>
   </div>
+  <p class="small muted prose">Scores are averages over 5 runs ± standard deviation; the best value in each column is bold. Params is the number of trained weights. Gate entropy runs from 0 (each note goes to one expert) to 1 (spread evenly).</p>
   <div class="prose stack">
     <h3>What the results say</h3>
     <ul class="tight">
       <li><b>Specialty routing beat chapter routing</b> (0.277 vs. 0.263 on categories, 0.248 vs. 0.234 on full codes), even though the chapter model is twice the size. My explanation: a note covers many chapters, so the chapter gate has to guess them from the text and spreads its weight around, while the specialty is known up front.</li>
       <li><b>No MoE version clearly beat the plain model.</b> With 500 training notes, each expert gets very little data. The learned gate put almost everything on 1–2 experts and did worst, which suggests routing should be guided by real labels like chapter or service.</li>
-      <li><b>Parent conditioning helped full codes</b> (+1.3 micro-F1, +1.4 macro-F1 over the plain model).</li>
+      <li><b>Parent conditioning helped full codes</b> (+1.2 micro-F1, +1.4 macro-F1 over the plain model).</li>
       <li><b>The stacked model had the best category score</b> (0.283), but only by about 1–2 standard deviations. Taking out FiLM, the layer that adjusts the full-code prediction by specialty and chapter, didn't hurt, so that part of the idea needs a different design or more data.</li>
       <li><b>Removing the general-medicine expert changed nothing</b>, because only 8% of CodiEsp notes are classified as general medicine. In MIMIC it's 41%, so this test should matter much more there.</li>
     </ul>
@@ -334,11 +358,11 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
     <table>
       <thead><tr><th>Step</th><th>Why</th></tr></thead>
       <tbody>
-        <tr><td>Run the same pipeline on MIMIC-IV discharge notes with the real <code>curr_service</code> labels, using the Edin et al. split</td><td>Tests whether specialty routing still wins with true labels and far more data.</td></tr>
-        <tr><td>Compare hard routing (service picks one expert), soft routing (service feeds the gate), and service plus note text</td><td>Nobody has published on this router design question.</td></tr>
+        <tr><td>Run the same pipeline on MIMIC-IV discharge notes with the real <code>curr_service</code> labels, using the corrected train/test split from Edin et al.</td><td>Tests whether specialty routing still wins with true labels and far more data.</td></tr>
+        <tr><td>Compare hard routing (the service picks exactly one expert), soft routing (the service is one input to the gate), and service plus note text</td><td>Nobody has published on this router design question.</td></tr>
         <tr><td>Test keeping a general-medicine expert vs. leaving MED admissions out</td><td>MED is 41% of admissions in MIMIC, so this choice is big there.</td></tr>
-        <tr><td>Swap FiLM for child-to-parent attention (like the Two-Stage Decoder) in the stacked model</td><td>FiLM didn't help; attention is the stronger published approach.</td></tr>
-        <tr><td>Fine-tune the encoder on a free Kaggle GPU (notebook is ready, about 3 hours)</td><td>Raises the scores and checks that the ranking holds.</td></tr>
+        <tr><td>Replace FiLM with attention, where each full code looks directly at its parent codes (like the Two-Stage Decoder)</td><td>FiLM didn't help; attention is the stronger published approach.</td></tr>
+        <tr><td>Fine-tune the encoder on a free Kaggle GPU (notebook tested on a small sample; a full run is estimated at about 3 hours)</td><td>Raises the scores and checks that the ranking holds.</td></tr>
       </tbody>
     </table>
   </div>

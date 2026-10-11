@@ -7,7 +7,7 @@ Compiled 2026-10-05. Every paper below was opened at the listed URL. Numbers mar
 - **No paper found that compares experts partitioned by ICD chapter against experts partitioned by specialty or hospital service.** The closest MoE paper for ICD coding (GoM-ICD, 2025) uses learned experts, and its abstract does not tie them to chapters or specialties. This looks like a real research gap.
 - **Hierarchy gives small, consistent gains, mostly on rare codes.** On MIMIC-III-full, JointLAAT raised macro-F1 from 9.9 to 10.7 with micro-F1 unchanged at 57.5. The Two-Stage Decoder gained +0.9 micro-F1 over JointLAAT, and HyperCore's hierarchy component was worth about +1.2 micro-F1.
 - **Conditioning child codes on parent predictions already exists, but nobody has done it with MoE.** JointLAAT concatenates an embedding of the parent prediction into each child classifier. The Two-Stage Decoder lets child labels attend to parent labels. I found no "stacked MoE" or FiLM-style version.
-- **The "+15 points from multiple models" claim is not supported.** The best ensemble result I found (Yang et al., AAAI 2023) adds +0.9 micro-F1 and +4.2 macro-F1 on MIMIC-III-full.
+- **The "+15 points from multiple models" claim is not supported.** The best ensemble result I found (Yang et al., AAAI 2023) adds +1.0 micro-F1 and +4.2 macro-F1 on MIMIC-III-full.
 - **No ICD-coding paper found that uses the MIMIC `services.curr_service` field or note specialty as a feature or router.** The only department-split study (Deep-ADCA) uses private hospital data and per-department evaluation, not routing.
 
 ## Q1: MoE and multi-expert models for ICD coding
@@ -59,7 +59,7 @@ Ask the teammate for the paper link.
 
 There is no support for this in ICD-coding ensemble work I could verify:
 
-- **GPsoap ensemble reranker** (MSMN + GPsoap, AAAI 2023) on MIMIC-III-full: micro-F1 58.2→59.1 (+0.9) and macro-F1 10.4→14.6 (+4.2). This is the strongest verified ensemble gain.
+- **GPsoap ensemble reranker** (MSMN + GPsoap, AAAI 2023) on MIMIC-III-full: micro-F1 58.1→59.1 (+1.0) and macro-F1 10.4→14.6 (+4.2). This is the strongest verified ensemble gain.
 - **Heliyon 2024 ensemble** (text models plus random forest or boosting on structured data): the abstract says it beats Longformer and knowledge-graph baselines, with no exact delta given. A search snippet quoted micro-F1 0.402→0.475 (+7.3) for an ensemble, which is **unverified** (full text was blocked).
 - **Sen et al. 2021** report +18% micro-F1. That comes from reformulating the task (sentence tagger plus classifier) on private phrase-annotated data, is not an ensemble, and is probably relative rather than absolute (**unverified**).
 - A search snippet claimed GatorTron gains of "+11%/+15.4%". These are **unverified** and appear to be relative improvements from a single model, not an ensemble.
@@ -83,7 +83,7 @@ None found for ICD coding. The standard benchmarks (CAML/Mullenbach splits on MI
 | HLAN | Dong, Suárez-Paniagua, Whiteley, Wu | 2021 | J. Biomed. Inform. | https://arxiv.org/abs/2010.15728 | 50: micro-F1 64.1 | Q2 (document hierarchy) |
 | Graph-Constrained Policy | Singh, Torres, Shakeel, Bukhari | 2026 | arXiv | https://arxiv.org/abs/2607.11954 | MIMIC-IV full: micro-F1 52.7 | Q2, Q3 |
 | GoM-ICD | Wu, Qiu, Zeng, Chen, Li, Zhu | 2025 | Big Data Min. Anal. 8(6) | https://www.sciopen.com/article/10.26599/BDMA.2025.9020019 | micro-F1 61.7 / 62.0 / 61.3 | Q1 (only ICD MoE) |
-| GPsoap | Yang, Kwon, Yao, Yu | 2023 | AAAI | https://ojs.aaai.org/index.php/AAAI/article/view/25668 | Ensemble: micro-F1 +0.9, macro-F1 +4.2 | Q2 generative, Q5 |
+| GPsoap | Yang, Kwon, Yao, Yu | 2023 | AAAI | https://ojs.aaai.org/index.php/AAAI/article/view/25668 | Reranker: micro-F1 +1.0, macro-F1 +4.2 | Q2 generative, Q5 |
 | Ensemble neural models | Merchant, Shenoy, Lanka, Kamath | 2024 | Heliyon | https://doi.org/10.1016/j.heliyon.2024.e36569 | Text plus structured ensemble; delta unverified | Q5 |
 | Multi-stage Retrieve and Re-rank | X. Wang, Mercer, Rudzicz | 2024 | NAACL | https://aclanthology.org/2024.naacl-long.273/ | micro-F1 60.3; auxiliary data worth +2.4 | Q6 |
 | Deep-ADCA | Masud et al. | 2022 | J. Pers. Med. | https://doi.org/10.3390/jpm12050707 | Per-department precision 0.50–0.69 | Q1, Q6 (non-MIMIC) |

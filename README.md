@@ -38,4 +38,4 @@ cd ../pilot
 ```
 
 The full comparison takes about 8 minutes on a laptop. For a fine-tuned encoder, run `pilot/kaggle_pilot.ipynb`
-on a free Kaggle GPU (about 3 hours).
+on a free Kaggle GPU (tested on a small sample; a full run is estimated at about 3 hours).
