@@ -4,7 +4,10 @@ Every variant uses the same frozen Bio_ClinicalBERT note embedding and predicts 
 3-char ICD category ("cat") and full code ("full"). Only the routing / conditioning differs.
 
   flat                 one MLP (no experts)
-  flat_parent          flat + child logits conditioned on parent-category logits
+  flat_parent          flat + child logits conditioned on parent-category logits (one model, trained jointly)
+  separate_parent      two separate models: model 1 predicts categories; model 2 predicts full codes, conditioned
+                       on model 1's category logits. Model 1's logits on the training notes are more confident
+                       than on unseen notes, so model 2 trains on cleaner parents than it sees at test time.
   moe_learned          unsupervised gate, load-balancing loss
   moe_chapter          gate trained to predict the note's ICD chapters (chapter unknown at test time)
   moe_specialty        gate = pseudo-specialty probabilities (like MIMIC's services table, known at test time)
@@ -28,7 +31,7 @@ import matplotlib.pyplot as plt
 from common import OUT
 
 HIDDEN = 128
-VARIANTS = ["flat", "flat_parent", "moe_learned", "moe_chapter", "moe_specialty", "moe_specialty_noMED",
+VARIANTS = ["flat", "flat_parent", "separate_parent", "moe_learned", "moe_chapter", "moe_specialty", "moe_specialty_noMED",
             "stacked", "stacked_noparent", "stacked_nofilm"]
 
 
@@ -68,7 +71,7 @@ class Model(nn.Module):
             self.parent_w = nn.Parameter(torch.full((n_full,), 0.5))
         self.cat_head, self.full_head = nn.Linear(HIDDEN, n_cat), nn.Linear(HIDDEN, n_full)
 
-    def forward(self, x, spec):
+    def forward(self, x, spec, parent_logits=None):
         x = self.drop(x)
         gate = None
         if self.v.startswith("flat"):
@@ -90,7 +93,8 @@ class Model(nn.Module):
             z_full = z * (1 + gamma) + beta
         full = self.full_head(z_full)
         if self.use_parent:
-            full = full + self.parent_w * cat[:, self.parent]
+            parents = cat if parent_logits is None else parent_logits
+            full = full + self.parent_w * parents[:, self.parent]
         return cat, full, gate
 
 
@@ -147,32 +151,70 @@ def evaluate(variant, data, dev_probs, test_probs, test_gate, seed, params):
     return row
 
 
+def fit(model, train_step, dev_score, epochs=400):
+    """Full-batch AdamW; keeps the weights with the best dev score (checked every 10 epochs)."""
+    opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-2)
+    best, best_state = -1, None
+    for epoch in range(epochs):
+        loss = train_step()
+        opt.zero_grad(), loss.backward(), opt.step()
+        if epoch % 10 == 9:
+            model.eval()
+            with torch.no_grad():
+                score = dev_score()
+            model.train()
+            if score > best:
+                best, best_state = score, {k: v.clone() for k, v in model.state_dict().items()}
+    model.load_state_dict(best_state)
+    model.eval()
+
+
+def run_separate(data, seed, epochs=400):
+    """Two independently trained models: categories first, then full codes conditioned on them."""
+    torch.manual_seed(seed), np.random.seed(seed)
+    t = {k: torch.as_tensor(v) for k, v in data.items() if v.dtype.kind in "fiub"}
+    spec = specialty_inputs("flat", data)
+    dims = (t["train_x"].shape[1], t["train_cat"].shape[1], t["train_full"].shape[1], data["parent"],
+            t["train_chapter"].shape[1], spec["train"].shape[1])
+    first, second = Model("flat", *dims), Model("flat_parent", *dims)
+
+    fit(first, lambda: F.binary_cross_entropy_with_logits(first(t["train_x"], spec["train"])[0], t["train_cat"]),
+        lambda: best_threshold_f1(torch.sigmoid(first(t["dev_x"], spec["dev"])[0]).numpy(), data["dev_cat"])[1], epochs)
+    with torch.no_grad():
+        cat_logits = {s: first(t[f"{s}_x"], spec[s])[0] for s in ["train", "dev", "test"]}
+
+    fit(second, lambda: F.binary_cross_entropy_with_logits(
+            second(t["train_x"], spec["train"], cat_logits["train"])[1], t["train_full"]),
+        lambda: best_threshold_f1(torch.sigmoid(second(t["dev_x"], spec["dev"], cat_logits["dev"])[1]).numpy(),
+                                  data["dev_full"])[1], epochs)
+    with torch.no_grad():
+        probs = {s: (torch.sigmoid(cat_logits[s]).numpy(),
+                     torch.sigmoid(second(t[f"{s}_x"], spec[s], cat_logits[s])[1]).numpy(), None) for s in ["dev", "test"]}
+    params = sum(p.numel() for p in first.parameters()) + sum(p.numel() for p in second.parameters())
+    return evaluate("separate_parent", data, probs["dev"], probs["test"], None, seed, params)
+
+
 def run(variant, data, seed, epochs=400):
     torch.manual_seed(seed), np.random.seed(seed)
     t = {k: torch.as_tensor(v) for k, v in data.items() if v.dtype.kind in "fiub"}
     spec = specialty_inputs(variant, data)
     model = Model(variant, t["train_x"].shape[1], t["train_cat"].shape[1], t["train_full"].shape[1],
                   data["parent"], t["train_chapter"].shape[1], spec["train"].shape[1])
-    opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-2)
 
     def predict(split):
-        model.eval()
         with torch.no_grad():
             cat, full, gate = model(t[f"{split}_x"], spec[split])
-        model.train()
         return torch.sigmoid(cat).numpy(), torch.sigmoid(full).numpy(), None if gate is None else gate.numpy()
 
-    best, best_state = -1, None
-    for epoch in range(epochs):
+    def train_step():
         cat, full, gate = model(t["train_x"], spec["train"])
-        loss = compute_loss(variant, cat, full, gate, t["train_cat"], t["train_full"], t["train_chapter"])
-        opt.zero_grad(), loss.backward(), opt.step()
-        if epoch % 10 == 9:
-            pc, pf, _ = predict("dev")
-            score = best_threshold_f1(pc, data["dev_cat"])[1] + best_threshold_f1(pf, data["dev_full"])[1]
-            if score > best:
-                best, best_state = score, {k: v.clone() for k, v in model.state_dict().items()}
-    model.load_state_dict(best_state)
+        return compute_loss(variant, cat, full, gate, t["train_cat"], t["train_full"], t["train_chapter"])
+
+    def dev_score():
+        pc, pf, _ = predict("dev")
+        return best_threshold_f1(pc, data["dev_cat"])[1] + best_threshold_f1(pf, data["dev_full"])[1]
+
+    fit(model, train_step, dev_score, epochs)
     dev, test = predict("dev"), predict("test")
     return evaluate(variant, data, dev, test, test[2], seed, sum(p.numel() for p in model.parameters()))
 
@@ -225,7 +267,7 @@ def main():
     rows = []
     for v in VARIANTS:
         for s in range(args.seeds):
-            rows.append(run(v, data, s))
+            rows.append(run_separate(data, s) if v == "separate_parent" else run(v, data, s))
         r = pd.DataFrame(rows[-args.seeds:])
         print(f"{v:22s} cat micro {r.cat_micro.mean():.3f}  full micro {r.full_micro.mean():.3f}  "
               f"full macro {r.full_macro.mean():.3f}")

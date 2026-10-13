@@ -47,7 +47,8 @@ The router then gives each CodiEsp note a soft specialty distribution (a stand-i
 | variant | category micro-F1 | full-code micro-F1 | full-code macro-F1 | gate entropy |
 |---|---|---|---|---|
 | flat (no experts) | 0.276 ± 0.003 | 0.241 ± 0.007 | 0.108 ± 0.014 | |
-| flat + parent conditioning | 0.277 ± 0.007 | **0.254 ± 0.005** | 0.122 ± 0.016 | |
+| flat + parent conditioning (one model) | 0.277 ± 0.007 | 0.254 ± 0.005 | **0.122 ± 0.016** | |
+| two separate models (parent, then full code) | 0.281 ± 0.004 | **0.266 ± 0.005** | 0.109 ± 0.026 | |
 | MoE, learned gate | 0.238 ± 0.007 | 0.206 ± 0.012 | 0.084 ± 0.009 | 0.25 |
 | MoE, chapter-routed | 0.263 ± 0.007 | 0.234 ± 0.007 | 0.099 ± 0.009 | 0.69 |
 | MoE, specialty-routed | 0.277 ± 0.007 | 0.248 ± 0.003 | 0.107 ± 0.008 | 0.89 |
@@ -69,6 +70,10 @@ Full table with macro-F1 for categories, parameter counts and expert usage: `out
    was worst, which supports using supervised routing (chapter or specialty labels) over a free gate.
 3. **Parent → child conditioning helped full codes** (+1.2 micro-F1, +1.4 macro-F1 over flat). Published
    hierarchy methods on MIMIC-III report gains of about the same size (+0.9 to +1.2 micro-F1).
+   **Two separate models** (a category model, then a full-code model that rereads the note and takes the
+   first model's category scores) gave the best full-code micro-F1 (0.266, +1.2 over one model). But the
+   pair has twice the parameters, and its full-code macro-F1 was lower and noisy (0.109 ± 0.026), so the
+   gain may be mostly on common codes.
 4. **Stacked specialty → chapter** gave the best category micro-F1, but the margin over flat is within
    ~1–2 standard deviations. **FiLM conditioning on specialty and chapter did not help.** Removing it
    was as good or better.
@@ -92,7 +97,7 @@ Full table with macro-F1 for categories, parameter counts and expert usage: `out
 | `common.py` | ICD-9/10 → chapter mapping (with self-check), MTSamples → service map |
 | `mimic_demo.py` | Experiment 1 |
 | `prepare.py` | Specialty router, frozen embeddings, label matrices → `out/codiesp_features.npz` |
-| `run_moe.py` | Experiment 2, all 9 variants (frozen encoder; ~8 min on a laptop CPU) |
+| `run_moe.py` | Experiment 2, all 10 variants (frozen encoder; ~10 min on a laptop CPU) |
 | `finetune.py` | Same variants with Bio_ClinicalBERT fine-tuned end to end (GPU) |
 | `kaggle_pilot.ipynb` | Self-contained notebook: downloads data, runs everything on a free Kaggle GPU |
 

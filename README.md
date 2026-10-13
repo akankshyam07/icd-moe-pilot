@@ -37,5 +37,5 @@ cd ../pilot
 ../.venv/bin/python mimic_demo.py && ../.venv/bin/python prepare.py && ../.venv/bin/python run_moe.py
 ```
 
-The full comparison takes about 8 minutes on a laptop. For a fine-tuned encoder, run `pilot/kaggle_pilot.ipynb`
+The full comparison takes around 10 minutes on a laptop. For a fine-tuned encoder, run `pilot/kaggle_pilot.ipynb`
 on a free Kaggle GPU (tested on a small sample; a full run is estimated at about 3 hours).

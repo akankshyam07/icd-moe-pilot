@@ -182,7 +182,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
     <li><div class="num">40.7%<small>of admissions</small></div><p>of admissions in the MIMIC-IV Demo start under general medicine (<code>MED</code>). A general-medicine expert would be the biggest one, so whether we keep it as a catch-all or leave those patients out is a real decision.</p></li>
     <li><div class="num">7.7<small>chapters / stay</small></div><p>ICD chapters per admission on average. A patient usually has codes from many chapters but only one admitting service.</p></li>
     <li><div class="num">+1.4<small>micro-F1 points</small></div><p>Routing by specialty did better than routing by chapter at both code levels. No MoE version clearly beat a plain model without experts, though.</p></li>
-    <li><div class="num">+1.2<small>micro-F1 points</small></div><p>Feeding each full code its parent category's score helped. Published hierarchy methods on MIMIC-III report gains of about the same size (+0.9 to +1.2 micro-F1).</p></li>
+    <li><div class="num">+1.2<small>micro-F1 points</small></div><p>Feeding each full code its parent category's score helped. Splitting this into two separate models, one for parent codes and one for full codes, added another 1.2 points, though with twice the parameters. Published hierarchy methods on MIMIC-III report gains of about the same size (+0.9 to +1.2 micro-F1).</p></li>
   </ul>
 </section>
 
@@ -286,7 +286,8 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
       <thead><tr><th>Version</th><th>How it works</th><th>Meeting idea it tests</th></tr></thead>
       <tbody>
         <tr><td>Plain model</td><td>One network, no experts</td><td>Baseline to beat</td></tr>
-        <tr><td>Plain + parent conditioning</td><td>Each full code also sees its 3-character parent's score</td><td>Parent-child hierarchy</td></tr>
+        <tr><td>Plain + parent conditioning (one model)</td><td>One model predicts both levels; each full code also sees its 3-character parent's score</td><td>Parent-child hierarchy</td></tr>
+        <tr><td>Two separate models</td><td>Model 1 predicts the parent codes. Model 2 rereads the note and uses model 1's parent predictions to predict the full codes</td><td>One model vs. separate models for parent and child</td></tr>
         <tr><td>MoE, learned gate</td><td>The model decides how to split notes among 8 experts</td><td>Do we need labels to route at all?</td></tr>
         <tr><td>MoE, chapter-routed</td><td>One expert per ICD chapter; the gate learns to predict the note's chapters</td><td>Chapter experts</td></tr>
         <tr><td>MoE, specialty-routed</td><td>One expert per specialty; the predicted specialty picks the experts</td><td>Specialty experts</td></tr>
@@ -316,6 +317,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
       <li><b>Specialty routing beat chapter routing</b> (0.277 vs. 0.263 on categories, 0.248 vs. 0.234 on full codes), even though the chapter model is twice the size. My explanation: a note covers many chapters, so the chapter gate has to guess them from the text and spreads its weight around, while the specialty is known up front.</li>
       <li><b>No MoE version clearly beat the plain model.</b> With 500 training notes, each expert gets very little data. The learned gate put almost everything on 1–2 experts and did worst, which suggests routing should be guided by real labels like chapter or service.</li>
       <li><b>Parent conditioning helped full codes</b> (+1.2 micro-F1, +1.4 macro-F1 over the plain model).</li>
+      <li><b>Two separate models beat one model</b> on full codes (0.266 vs. 0.254 micro-F1), the best full-code score of any version. Two catches: the pair has twice the parameters of the single model, and its macro-F1, which weights rare codes equally, was lower and varied a lot between runs (0.109 ± 0.026). So it may help common codes more than rare ones. Model 1's predictions on its own training notes are also more confident than on new notes, which could matter more on MIMIC.</li>
       <li><b>The stacked model had the best category score</b> (0.283), but only by about 1–2 standard deviations. Taking out FiLM, the layer that adjusts the full-code prediction by specialty and chapter, didn't hurt, so that part of the idea needs a different design or more data.</li>
       <li><b>Removing the general-medicine expert changed nothing</b>, because only 8% of CodiEsp notes are classified as general medicine. In MIMIC it's 41%, so this test should matter much more there.</li>
     </ul>
@@ -333,7 +335,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
       <tbody>
         <tr><td>The <code>services</code> numbers in Experiment 1 come from real MIMIC-IV tables.</td><td>Absolute scores. CodiEsp case reports are shorter and different in style from discharge summaries.</td></tr>
         <tr><td>The experiment design: same encoder for every version, only routing changes, a fixed train/dev/test split, 5 runs each.</td><td>Specialty labels are predicted from MTSamples. In MIMIC the real service would route much more sharply.</td></tr>
-        <tr><td>The code: ICD-9/ICD-10 chapter mapping, all nine versions, and the evaluation all run on any notes coded in ICD-10.</td><td>Rare codes. I left out codes seen fewer than 3 times, and MIMIC has thousands of them.</td></tr>
+        <tr><td>The code: ICD-9/ICD-10 chapter mapping, all ten versions, and the evaluation all run on any notes coded in ICD-10.</td><td>Rare codes. I left out codes seen fewer than 3 times, and MIMIC has thousands of them.</td></tr>
         <tr><td>Direction of the results: supervised routing beats a learned gate, and parent conditioning helps.</td><td>Whether specialty still beats chapter with real service labels and far more training data.</td></tr>
       </tbody>
     </table>
@@ -361,6 +363,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
         <tr><td>Run the same pipeline on MIMIC-IV discharge notes with the real <code>curr_service</code> labels, using the corrected train/test split from Edin et al.</td><td>Tests whether specialty routing still wins with true labels and far more data.</td></tr>
         <tr><td>Compare hard routing (the service picks exactly one expert), soft routing (the service is one input to the gate), and service plus note text</td><td>Nobody has published on this router design question.</td></tr>
         <tr><td>Test keeping a general-medicine expert vs. leaving MED admissions out</td><td>MED is 41% of admissions in MIMIC, so this choice is big there.</td></tr>
+        <tr><td>Compare one vs. two models at the same size, and check rare codes separately</td><td>Separate models won on common codes here but had twice the parameters and noisier rare-code scores.</td></tr>
         <tr><td>Replace FiLM with attention, where each full code looks directly at its parent codes (like the Two-Stage Decoder)</td><td>FiLM didn't help; attention is the stronger published approach.</td></tr>
         <tr><td>Fine-tune the encoder on a free Kaggle GPU (notebook tested on a small sample; a full run is estimated at about 3 hours)</td><td>Raises the scores and checks that the ranking holds.</td></tr>
       </tbody>
@@ -373,8 +376,8 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
   <div class="stack small muted">
     <p><b>Data.</b> MIMIC-IV Demo v2.2: <code>services</code> (first service per admission by transfer time) and <code>diagnoses_icd</code>, with ICD-9 codes mapped to ICD-10 chapters. MTSamples: 4,999 notes reduced to 2,094 after removing duplicates and labels that are note types (Consult, SOAP, Discharge Summary) instead of specialties. CodiEsp English: 500 train / 250 dev / 250 test, keeping codes with at least 3 training occurrences.</p>
     <p><b>Specialty classifier.</b> TF-IDF (1–2-word phrases) with class-balanced logistic regression, 80/20 stratified split.</p>
-    <p><b>Coding models.</b> Bio_ClinicalBERT with notes split into 512-token chunks and averaged, encoder frozen. Experts are 128-unit layers. The chapter gate is trained toward each note's chapter distribution; the learned gate has a load-balancing penalty. Trained with AdamW and stopped early on the dev set; one decision threshold per code level is tuned on dev. Macro-F1 averages over codes that appear in the test set.</p>
-    <p><b>Code.</b> <a href="https://github.com/akankshyam07/icd-moe-pilot" target="_blank" rel="noopener">github.com/akankshyam07/icd-moe-pilot</a>: Python scripts for each step plus a Kaggle notebook. Every run uses a fixed seed and reproduces exactly; the full comparison takes about 8 minutes on a laptop.</p>
+    <p><b>Coding models.</b> Bio_ClinicalBERT with notes split into 512-token chunks and averaged, encoder frozen. Experts are 128-unit layers. The chapter gate is trained toward each note's chapter distribution; the learned gate has a load-balancing penalty. The two-model version trains a category model first, then a separate full-code model that takes the note plus the first model's category scores. Trained with AdamW and stopped early on the dev set; one decision threshold per code level is tuned on dev. Macro-F1 averages over codes that appear in the test set.</p>
+    <p><b>Code.</b> <a href="https://github.com/akankshyam07/icd-moe-pilot" target="_blank" rel="noopener">github.com/akankshyam07/icd-moe-pilot</a>: Python scripts for each step plus a Kaggle notebook. Every run uses a fixed seed and reproduces exactly; the full comparison takes around 10 minutes on a laptop.</p>
   </div>
 </details>
 
@@ -399,7 +402,8 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; font-size: 0.85re
   // variant, label, family(0 baseline,1 moe,2 stacked), cat micro m/s, cat macro m/s, full micro m/s, full macro m/s, params(k), entropy
   const results = [
     ["flat","Plain model (no experts)",0,.276,.003,.134,.003,.241,.007,.108,.014,571,null],
-    ["flat_parent","Plain + parent conditioning",0,.277,.007,.121,.017,.254,.005,.122,.016,572,null],
+    ["flat_parent","Plain + parent (one model)",0,.277,.007,.121,.017,.254,.005,.122,.016,572,null],
+    ["separate_parent","Two separate models",0,.281,.004,.141,.013,.266,.005,.109,.026,1143,null],
     ["moe_learned","MoE, learned gate",1,.238,.007,.106,.008,.206,.012,.084,.009,906,.25],
     ["moe_chapter","MoE, chapter-routed",1,.263,.007,.122,.006,.234,.007,.099,.009,2295,.69],
     ["moe_specialty","MoE, specialty-routed",1,.277,.007,.134,.013,.248,.003,.107,.008,1195,.89],
