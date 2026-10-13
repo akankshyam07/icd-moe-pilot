@@ -1,5 +1,5 @@
 """Experiment 2b (GPU): same routing variants as run_moe.py, but Bio_ClinicalBERT is fine-tuned end to end
-instead of frozen. Meant for a free Kaggle/Colab GPU; about 10 min per run on a T4.
+instead of frozen. Meant for a free Kaggle/Colab GPU (tested only on a small sample; runtime not yet measured).
 Requires prepare.py to have run (labels + pseudo-specialty come from codiesp_features.npz).
 """
 import argparse
